@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz BPF - Bonnes Pratiques de Fabrication</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --primary-color: #2196F3;
+            --primary-light: #64B5F6;
+            --primary-dark: #1976D2;
+            --accent-color: #03A9F4;
+            --background-color: #121212;
+            --surface-color: #1e1e1e;
+            --surface-color-light: #2d2d2d;
+            --text-color: #e0e0e0;
+            --text-color-secondary: #b0b0b0;
+            --correct-color: #4CAF50;
+            --incorrect-color: #F44336;
+            --border-color: #333;
+            --shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --card-radius: 16px;
+            --button-radius: 12px;
+        }
+
+        .light-mode {
+            --background-color: #f0f4f8;
+            --surface-color: #ffffff;
+            --surface-color-light: #f8fafc;
+            --text-color: #1a202c;
+            --text-color-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            transition: var(--transition);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image: radial-gradient(circle at 25px 25px, rgba(33, 150, 243, 0.15) 2%, transparent 0%), 
+                             radial-gradient(circle at 75px 75px, rgba(33, 150, 243, 0.1) 2%, transparent 0%);
+            background-size: 100px 100px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .quiz-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            padding: 1.5rem 2rem;
+            background: var(--surface-color);
+            border-radius: var(--card-radius);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .quiz-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+        }
+
+        .quiz-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .quiz-title-icon {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.3);
+            flex-shrink: 0;
+        }
+
+        .question-container {
+            background: var(--surface-color);
+            border-radius: var(--card-radius);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .question-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--primary-color), var(--accent-color));
+        }
+
+        .question-number {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.1rem;
+        }
+
+        .question-number-badge {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.3);
+            flex-shrink: 0;
+        }
+
+        .chapter-badge {
+            background: rgba(33, 150, 243, 0.1);
+            color: var(--primary-color);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: auto;
+        }
+
+        .question-text {
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin-bottom: 2rem;
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .option {
+            padding: 1.25rem;
+            border-radius: var(--button-radius);
+            background: var(--surface-color-light);
+            border: 2px solid var(--border-color);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+        }
+
+        .option:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary-light);
+        }
+
+        .option.selected {
+            border-color: var(--primary-color);
+            background: rgba(33, 150, 243, 0.1);
+        }
+
+        .option.correct {
+            border-color: var(--correct-color);
+            background: rgba(76, 175, 80, 0.15);
+        }
+
+        .option.incorrect {
+            border-color: var(--incorrect-color);
+            background: rgba(244, 67, 54, 0.1);
+        }
+
+        .option.disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .option-letter {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            color: var(--primary-color);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(33, 150, 243, 0.1);
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+
+        .option.correct .option-letter {
+            background: var(--correct-color);
+            color: white;
+        }
+
+        .option.incorrect .option-letter {
+            background: var(--incorrect-color);
+            color: white;
+        }
+
+        .option-text {
+            flex: 1;
+        }
+
+        .feedback {
+            margin-top: 1.5rem;
+            padding: 1rem 1.25rem;
+            border-radius: var(--button-radius);
+            font-weight: 500;
+            display: none;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .feedback.correct {
+            background: rgba(76, 175, 80, 0.15);
+            color: var(--correct-color);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-left: 4px solid var(--correct-color);
+        }
+
+        .feedback.incorrect {
+            background: rgba(244, 67, 54, 0.1);
+            color: var(--incorrect-color);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-left: 4px solid var(--incorrect-color);
+        }
+
+        .explanation {
+            margin-top: 1.5rem;
+            padding: 1.25rem;
+            border-radius: var(--button-radius);
+            background: var(--surface-color-light);
+            display: none;
+            border-left: 4px solid var(--primary-color);
+            animation: slideUp 0.4s ease-out;
+        }
+
+        .explanation.visible {
+            display: block;
+        }
+
+        .explanation-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .explanation-content {
+            color: var(--text-color-secondary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+            gap: 1rem;
+        }
+
+        .nav-button {
+            padding: 0.9rem 1.75rem;
+            border-radius: var(--button-radius);
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .nav-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .nav-button.prev {
+            background: var(--surface-color-light);
+            color: var(--text-color);
+            border: 2px solid var(--border-color);
+        }
+
+        .nav-button.next {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        .nav-button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .progress-container {
+            margin-top: 2rem;
+            padding: 1.5rem 2rem;
+            background: var(--surface-color);
+            border-radius: var(--card-radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: var(--surface-color-light);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: var(--text-color-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .progress-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .progress-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .progress-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .progress-stat-label {
+            font-size: 0.85rem;
+            color: var(--text-color-secondary);
+        }
+
+        #themeToggle {
+            background: var(--surface-color-light);
+            border: 2px solid var(--border-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            color: var(--text-color);
+        }
+
+        #themeToggle:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow);
+        }
+
+        .start-screen {
+            text-align: center;
+            padding: 3rem 2rem;
+            background: var(--surface-color);
+            border-radius: var(--card-radius);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .start-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+        }
+
+        .start-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .start-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            border-radius: 2px;
+        }
+
+        .start-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-color-secondary);
+            margin-bottom: 3rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .start-button {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            border-radius: var(--button-radius);
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .start-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(33, 150, 243, 0.4);
+        }
+
+        .quiz-info {
+            margin-top: 3rem;
+            padding: 1.5rem;
+            border-radius: var(--button-radius);
+            background: var(--surface-color-light);
+            text-align: left;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .info-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .info-card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(33, 150, 243, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .info-card-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .info-card-content {
+            color: var(--text-color-secondary);
+            font-size: 0.9rem;
+        }
+
+        .results-container {
+            text-align: center;
+            padding: 3rem 2rem;
+            background: var(--surface-color);
+            border-radius: var(--card-radius);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .results-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+        }
+
+        .results-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .results-subtitle {
+            color: var(--text-color-secondary);
+            margin-bottom: 2.5rem;
+        }
+
+        .score-display {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            margin: 0 auto 2rem;
+        }
+
+        .score-circle {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: var(--surface-color-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .score-value {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .score-text {
+            font-size: 1.2rem;
+            margin: 1rem 0 2rem;
+            color: var(--text-color);
+        }
+
+        .results-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .result-stat {
+            padding: 1.5rem;
+            background: var(--surface-color-light);
+            border-radius: var(--button-radius);
+            text-align: center;
+        }
+
+        .result-stat-value {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-stat-value.correct {
+            color: var(--correct-color);
+        }
+
+        .result-stat-value.incorrect {
+            color: var(--incorrect-color);
+        }
+
+        .result-stat-value.percentage {
+            color: var(--primary-color);
+        }
+
+        .result-stat-label {
+            color: var(--text-color-secondary);
+            font-size: 0.9rem;
+        }
+
+        .results-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+
+        .result-button {
+            padding: 0.9rem 1.75rem;
+            border-radius: var(--button-radius);
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .result-button.primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        .result-button.secondary {
+            background: var(--surface-color-light);
+            color: var(--text-color);
+            border: 2px solid var(--border-color);
+        }
+
+        .result-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-color-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        @media (max-width: 768px) {
+            .quiz-title {
+                font-size: 1.2rem;
+            }
+
+            .start-title {
+                font-size: 1.8rem;
+            }
+
+            .question-text {
+                font-size: 1.1rem;
+            }
+
+            .navigation {
+                flex-direction: column;
+            }
+
+            .nav-button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .progress-stats {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .quiz-info {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="quiz-header" id="quizHeader">
+            <div class="quiz-title">
+                <div class="quiz-title-icon">
+                    <i data-lucide="flask-conical"></i>
+                </div>
+                <span>Quiz BPF - Pharmacie Industrielle</span>
+            </div>
+            <button id="themeToggle">
+                <i data-lucide="sun"></i>
+            </button>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="startScreen" class="start-screen">
+            <h1 class="start-title">Quiz Bonnes Pratiques de Fabrication</h1>
+            <p class="start-subtitle">
+                Testez vos connaissances sur les BPF (GMP) - Pharmacie Industrielle L2
+            </p>
+            <button class="start-button" onclick="startQuiz()">
+                <i data-lucide="play-circle"></i>
+                Commencer le Quiz
+            </button>
+            <div class="quiz-info">
+                <div class="info-card">
+                    <div class="info-card-icon">
+                        <i data-lucide="book-open"></i>
+                    </div>
+                    <div class="info-card-title">9 Chapitres</div>
+                    <div class="info-card-content">Couvrant tous les aspects des BPF</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-card-icon">
+                        <i data-lucide="help-circle"></i>
+                    </div>
+                    <div class="info-card-title">45 Questions</div>
+                    <div class="info-card-content">5 questions par chapitre</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-card-icon">
+                        <i data-lucide="lightbulb"></i>
+                    </div>
+                    <div class="info-card-title">Explications Détaillées</div>
+                    <div class="info-card-content">Apprenez de chaque réponse</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Container -->
+        <div id="quizContainer" style="display: none;">
+            <div class="question-container" id="questionContainer">
+                <!-- Questions will be dynamically inserted here -->
+            </div>
+
+            <div class="navigation">
+                <button class="nav-button prev" id="prevButton" onclick="previousQuestion()">
+                    <i data-lucide="chevron-left"></i>
+                    Précédent
+                </button>
+                <button class="nav-button next" id="nextButton" onclick="nextQuestion()">
+                    Suivant
+                    <i data-lucide="chevron-right"></i>
+                </button>
+            </div>
+
+            <div class="progress-container">
+                <div class="progress-text">
+                    <span>Progression</span>
+                    <span id="progressText">0/45</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-stats">
+                    <div class="progress-stat">
+                        <div class="progress-stat-value" id="answeredCount">0</div>
+                        <div class="progress-stat-label">Répondues</div>
+                    </div>
+                    <div class="progress-stat">
+                        <div class="progress-stat-value" id="correctCount">0</div>
+                        <div class="progress-stat-label">Correctes</div>
+                    </div>
+                    <div class="progress-stat">
+                        <div class="progress-stat-value" id="incorrectCount">0</div>
+                        <div class="progress-stat-label">Incorrectes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="resultsScreen" style="display: none;">
+            <div class="results-container">
+                <h2 class="results-title">Quiz Terminé !</h2>
+                <p class="results-subtitle">Voici vos résultats</p>
+                
+                <div class="score-display">
+                    <div class="score-circle">
+                        <div class="score-value" id="finalScore">0%</div>
+                    </div>
+                </div>
+                
+                <p class="score-text" id="scoreMessage"></p>
+                
+                <div class="results-stats">
+                    <div class="result-stat">
+                        <div class="result-stat-value correct" id="finalCorrect">0</div>
+                        <div class="result-stat-label">Réponses Correctes</div>
+                    </div>
+                    <div class="result-stat">
+                        <div class="result-stat-value incorrect" id="finalIncorrect">0</div>
+                        <div class="result-stat-label">Réponses Incorrectes</div>
+                    </div>
+                    <div class="result-stat">
+                        <div class="result-stat-value percentage" id="finalPercentage">0%</div>
+                        <div class="result-stat-label">Pourcentage</div>
+                    </div>
+                </div>
+                
+                <div class="results-actions">
+                    <button class="result-button primary" onclick="restartQuiz()">
+                        <i data-lucide="rotate-ccw"></i>
+                        Recommencer
+                    </button>
+                    <button class="result-button secondary" onclick="reviewAnswers()">
+                        <i data-lucide="eye"></i>
+                        Revoir les Réponses
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Quiz BPF - Bonnes Pratiques de Fabrication | Pharmacie Industrielle L2 | Université Blida 1</p>
+    </footer>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Quiz data with all questions, answers, and explanations
+        const quizData = [
+            // Chapitre 1: Gestion de la qualité
+            {
+                chapter: "Chapitre 1",
+                chapterTitle: "Gestion de la qualité",
+                question: "La gestion de la qualité comprend :",
+                options: [
+                    "Les BPF uniquement",
+                    "L'assurance qualité uniquement",
+                    "L'assurance qualité, les BPF et le contrôle qualité",
+                    "Le contrôle qualité uniquement"
+                ],
+                correctAnswer: 2,
+                explanation: "La gestion de la qualité est un concept global qui comprend trois éléments essentiels : l'Assurance Qualité (AQ), les Bonnes Pratiques de Fabrication (BPF), et le Contrôle Qualité (CQ). Ces trois composantes travaillent ensemble pour garantir la qualité des médicaments. L'AQ définit les mesures, les BPF établissent les normes de fabrication, et le CQ vérifie la conformité."
+            },
+            {
+                chapter: "Chapitre 1",
+                chapterTitle: "Gestion de la qualité",
+                question: "L'assurance qualité a pour objectif principal :",
+                options: [
+                    "Réduire les coûts",
+                    "Garantir que le médicament est conforme à l'usage destiné",
+                    "Accélérer la production",
+                    "Remplacer le contrôle qualité"
+                ],
+                correctAnswer: 1,
+                explanation: "L'Assurance Qualité (AQ) est un large concept qui couvre tout ce qui peut influencer la qualité d'un produit. Son objectif principal est de garantir que les médicaments fabriqués sont de qualité requise à l'usage destiné. Elle englobe l'ensemble des mesures prises pour s'assurer que les médicaments sont conformes aux spécifications et aux exigences de l'AMM."
+            },
+            {
+                chapter: "Chapitre 1",
+                chapterTitle: "Gestion de la qualité",
+                question: "Le système qualité doit être :",
+                options: [
+                    "Facultatif",
+                    "Bien conçu, mis en œuvre et contrôlé",
+                    "Dépendant du marketing",
+                    "Limité à la production"
+                ],
+                correctAnswer: 1,
+                explanation: "Selon les BPF, le système qualité pharmaceutique doit être bien conçu, correctement mis en œuvre, et efficacement contrôlé. Ces trois aspects sont essentiels pour garantir l'efficacité du système et assurer la qualité constante des médicaments produits."
+            },
+            {
+                chapter: "Chapitre 1",
+                chapterTitle: "Gestion de la qualité",
+                question: "La roue de Deming correspond à :",
+                options: [
+                    "FIFO",
+                    "SWOT",
+                    "PDCA",
+                    "HACCP"
+                ],
+                correctAnswer: 2,
+                explanation: "La roue de Deming est basée sur le cycle PDCA : Plan (Planifier), Do (Faire), Check (Vérifier), Act (Agir/Améliorer). Cette démarche illustre le principe de l'amélioration continue et est fondamentale dans la pratique quotidienne de l'assurance qualité. Elle permet d'avancer pas à pas en s'assurant que chaque étape a été correctement réalisée."
+            },
+            {
+                chapter: "Chapitre 1",
+                chapterTitle: "Gestion de la qualité",
+                question: "Le contrôle qualité garantit que :",
+                options: [
+                    "Les médicaments sont vendus",
+                    "Les analyses nécessaires ont été réalisées et sont satisfaisantes",
+                    "Les fournisseurs sont certifiés",
+                    "Les locaux sont propres"
+                ],
+                correctAnswer: 1,
+                explanation: "Le Contrôle Qualité (CQ) garantit que toutes les analyses nécessaires ont réellement été effectuées et ont été jugées satisfaisantes. Il assure la vérification de la conformité, la fiabilité des résultats, et la traçabilité par l'enregistrement de tous les résultats. Le CQ est complètement indépendant de la production."
+            },
+
+            // Chapitre 2: Personnel
+            {
+                chapter: "Chapitre 2",
+                chapterTitle: "Personnel",
+                question: "Le personnel doit être :",
+                options: [
+                    "Peu nombreux",
+                    "Qualifié et en nombre suffisant",
+                    "Polyvalent sans formation",
+                    "Temporaire"
+                ],
+                correctAnswer: 1,
+                explanation: "Selon les BPF, le personnel doit être qualifié et en nombre suffisant pour accomplir toutes les tâches nécessaires. Le système doit reposer sur un personnel ayant les compétences appropriées et en quantité adéquate pour garantir la qualité des médicaments fabriqués."
+            },
+            {
+                chapter: "Chapitre 2",
+                chapterTitle: "Personnel",
+                question: "Les responsables production et contrôle qualité doivent être :",
+                options: [
+                    "La même personne",
+                    "Dépendants l'un de l'autre",
+                    "Indépendants",
+                    "Non qualifiés"
+                ],
+                correctAnswer: 2,
+                explanation: "Les BPF exigent que les deux responsables de production et de contrôle qualité soient indépendants l'un de l'autre. Cette indépendance est cruciale pour maintenir l'objectivité et éviter les conflits d'intérêts. Les deux postes doivent être occupés à temps plein et par des personnes différentes."
+            },
+            {
+                chapter: "Chapitre 2",
+                chapterTitle: "Personnel",
+                question: "La formation du personnel doit être :",
+                options: [
+                    "Unique à l'embauche",
+                    "Facultative",
+                    "Continue et évaluée périodiquement",
+                    "Réservée aux cadres"
+                ],
+                correctAnswer: 2,
+                explanation: "Le personnel doit recevoir initialement puis d'une façon répétée, une formation sur les aspects théoriques et pratiques de l'AQ et les BPF. La formation et son efficacité doivent être évaluées périodiquement. Cette formation continue concerne tout le personnel (technique, production, laboratoire, entretien, nettoyage y compris)."
+            },
+            {
+                chapter: "Chapitre 2",
+                chapterTitle: "Personnel",
+                question: "Le pharmacien responsable :",
+                options: [
+                    "Libère les lots sans contrôle",
+                    "Certifie la conformité des lots avant leur mise sur le marché",
+                    "Assure le transport",
+                    "Rédige la publicité"
+                ],
+                correctAnswer: 1,
+                explanation: "Les médicaments ne sont pas vendus ou expédiés avant que le pharmacien responsable n'ait certifié que chaque lot de production a bien été fabriqué et contrôlé conformément aux exigences de l'AMM et de toute autre réglementation portant sur la production, le contrôle et la libération des médicaments. C'est une responsabilité cruciale pour la sécurité des patients."
+            },
+            {
+                chapter: "Chapitre 2",
+                chapterTitle: "Personnel",
+                question: "En zone de production, il est interdit de :",
+                options: [
+                    "Porter une tenue adaptée",
+                    "Fumer, manger ou boire",
+                    "Suivre une procédure",
+                    "Travailler en équipe"
+                ],
+                correctAnswer: 1,
+                explanation: "Dans les zones de production, stockage, etc., il est strictement interdit de manger, boire, fumer, ou garder de la nourriture, boisson, ou tabac. Ces interdictions visent à prévenir la contamination des produits et à maintenir l'hygiène nécessaire à la fabrication pharmaceutique."
+            },
+
+            // Chapitre 3: Locaux et matériel
+            {
+                chapter: "Chapitre 3",
+                chapterTitle: "Locaux et matériel",
+                question: "Les locaux doivent être conçus pour :",
+                options: [
+                    "Accélérer la production",
+                    "Éviter contamination et confusion",
+                    "Réduire le personnel",
+                    "Diminuer la formation"
+                ],
+                correctAnswer: 1,
+                explanation: "Les locaux doivent être disposés selon un ordre logique des opérations de fabrication pour qu'il n'y ait aucun risque sur la qualité du produit (confusion, contamination, entrée d'insectes ou animaux, passage pour personne non autorisée...). L'agancement de l'espace doit permettre de ranger de façon ordonnée et logique le matériel et les produits."
+            },
+            {
+                chapter: "Chapitre 3",
+                chapterTitle: "Locaux et matériel",
+                question: "Les laboratoires de contrôle doivent être :",
+                options: [
+                    "Dans les zones de production",
+                    "Séparés des zones de production",
+                    "À l'extérieur du site",
+                    "Facultatifs"
+                ],
+                correctAnswer: 1,
+                explanation: "Les laboratoires de contrôle (physico-chimie, microbiologie...) doivent être séparés des zones de production ainsi que les ateliers d'entretien. Cette séparation est essentielle pour éviter les contaminations croisées et maintenir l'intégrité des analyses effectuées."
+            },
+            {
+                chapter: "Chapitre 3",
+                chapterTitle: "Locaux et matériel",
+                question: "Les balances doivent être :",
+                options: [
+                    "Décoratives",
+                    "Étalonnées périodiquement",
+                    "Utilisées sans vérification",
+                    "Non identifiées"
+                ],
+                correctAnswer: 1,
+                explanation: "Les balances et matériel de mesure doivent être de portée et de précision appropriées aux opérations de production et contrôle. Ils doivent être étalonnés et vérifiés par des méthodes appropriées périodiquement avec enregistrement conservé. L'étalonnage garantit la fiabilité des mesures."
+            },
+            {
+                chapter: "Chapitre 3",
+                chapterTitle: "Locaux et matériel",
+                question: "Les zones de stockage doivent être :",
+                options: [
+                    "Sans identification",
+                    "Propres et bien classées",
+                    "Communes à tous les produits",
+                    "Réservées aux produits finis"
+                ],
+                correctAnswer: 1,
+                explanation: "Les zones de stockage doivent être propres, sèches et de taille suffisante pour permettre un classement par catégorie portant la mention (MP, AC, P en quarantaine, P libérés, P refusés, P rappelé,...). Cette organisation est essentielle pour éviter les confusions et maintenir la traçabilité."
+            },
+            {
+                chapter: "Chapitre 3",
+                chapterTitle: "Locaux et matériel",
+                question: "Le matériel défectueux doit être :",
+                options: [
+                    "Utilisé rapidement",
+                    "Jeté sans enregistrement",
+                    "Retiré ou clairement identifié",
+                    "Nettoyé uniquement"
+                ],
+                correctAnswer: 2,
+                explanation: "Le matériel défectueux doit être retiré des zones de production et contrôle ou clairement étiqueté. Cette mesure est cruciale pour éviter son utilisation accidentelle qui pourrait compromettre la qualité du produit et la sécurité du processus de fabrication."
+            },
+
+            // Chapitre 4: Documentation
+            {
+                chapter: "Chapitre 4",
+                chapterTitle: "Documentation",
+                question: "Le principe fondamental de la documentation est :",
+                options: [
+                    "Dire sans écrire",
+                    "Écrire, faire, enregistrer, contrôler",
+                    "Parler, vérifier, oublier",
+                    "Faire sans preuve"
+                ],
+                correctAnswer: 1,
+                explanation: "Les règles fondamentales de la documentation sont : Écrire ce qu'il faut faire, Faire ce qui est écrit, Enregistrer ce qui a été fait, Contrôler, évaluer, améliorer. Ces principes garantissent la traçabilité et la cohérence des opérations. Toute transmission se fait obligatoirement par écrit."
+            },
+            {
+                chapter: "Chapitre 4",
+                chapterTitle: "Documentation",
+                question: "Toute correction sur un document doit être :",
+                options: [
+                    "Effacée",
+                    "Signée et datée",
+                    "Ignorée",
+                    "Réécrite entièrement"
+                ],
+                correctAnswer: 1,
+                explanation: "Les documents doivent être signés, datés et agréés par des personnes compétentes et toute correction doit être signée et datée. Cette exigence garantit la traçabilité des modifications et l'intégrité des documents. Il ne faut jamais effacer ou rendre illisible une correction."
+            },
+            {
+                chapter: "Chapitre 4",
+                chapterTitle: "Documentation",
+                question: "Les dossiers de lot servent à :",
+                options: [
+                    "Calculer le prix",
+                    "Retracer l'historique d'un lot",
+                    "Former le personnel",
+                    "Remplacer les procédures"
+                ],
+                correctAnswer: 1,
+                explanation: "Les relevés, comptes rendus ou enregistrements (réunis dans les dossiers de lot) retracent l'historique de chaque lot de produit, y compris sa distribution ainsi que tous les autres éléments influençant la qualité du produit final. Cette traçabilité complète est essentielle en cas de rappel ou d'investigation."
+            },
+            {
+                chapter: "Chapitre 4",
+                chapterTitle: "Documentation",
+                question: "Les documents périmés doivent être :",
+                options: [
+                    "Conservés",
+                    "Utilisés",
+                    "Éliminés",
+                    "Archivés sans contrôle"
+                ],
+                correctAnswer: 2,
+                explanation: "Les documents doivent être tenus à jour avec version périmée éliminée. Il est crucial d'éliminer les versions obsolètes pour éviter toute confusion et garantir que seules les versions actuelles et approuvées sont utilisées dans les opérations de production et de contrôle."
+            },
+            {
+                chapter: "Chapitre 4",
+                chapterTitle: "Documentation",
+                question: "La documentation permet principalement la :",
+                options: [
+                    "Publicité",
+                    "Traçabilité",
+                    "Vente",
+                    "Distribution"
+                ],
+                correctAnswer: 1,
+                explanation: "La documentation assure la traçabilité de toutes les opérations. Un bon document est un élément essentiel du système assurance qualité. Des écrits clairs évitent les erreurs liées aux communications verbales et permettent de retracer l'historique d'un lot, ce qui est fondamental pour la qualité pharmaceutique."
+            },
+
+            // Chapitre 5: Production
+            {
+                chapter: "Chapitre 5",
+                chapterTitle: "Production",
+                question: "Toute opération de fabrication doit être :",
+                options: [
+                    "Improvisée",
+                    "Validée et maîtrisée",
+                    "Rapide uniquement",
+                    "Sans contrôle"
+                ],
+                correctAnswer: 1,
+                explanation: "Toutes les opérations pour la fabrication doivent être maîtrisées et validées (achat, réception, manutention, stockage, étiquetage, prélèvement, échantillonnage, contrôle, production, conditionnement, distribution...). Tout procédé de fabrication doit être clairement défini et capable de reproduire de façon répétée la même qualité de médicament exigée."
+            },
+            {
+                chapter: "Chapitre 5",
+                chapterTitle: "Production",
+                question: "La contamination croisée est causée par :",
+                options: [
+                    "Une erreur de dosage",
+                    "Une mauvaise publicité",
+                    "Des poussières, gaz ou résidus",
+                    "Le stockage"
+                ],
+                correctAnswer: 2,
+                explanation: "Ce risque de contamination croisée accidentelle a pour origine la libération incontrôlée de poussières, gaz, vapeurs, aérosols ou organismes à partir des matières premières et des produits en cours de fabrication, des résidus provenant du matériel et des vêtements des opérateurs. L'importance du risque varie selon le type de contaminant et de produit contaminé."
+            },
+            {
+                chapter: "Chapitre 5",
+                chapterTitle: "Production",
+                question: "Le « vide en ligne » signifie :",
+                options: [
+                    "Arrêt de production",
+                    "Absence totale de documents",
+                    "Élimination des restes du produit précédent",
+                    "Nettoyage du personnel"
+                ],
+                correctAnswer: 2,
+                explanation: "Il faut vérifier la propreté des locaux et matériel avant chaque utilisation (tout produit, PV, doc... du produit précédent doit être éliminé - vide en ligne). Cette vérification est essentielle pour éviter la contamination croisée et garantir que seul le produit en cours de fabrication est présent."
+            },
+            {
+                chapter: "Chapitre 5",
+                chapterTitle: "Production",
+                question: "Les produits finis doivent être :",
+                options: [
+                    "Directement commercialisés",
+                    "Mis en quarantaine avant libération",
+                    "Détruits systématiquement",
+                    "Mélangés aux lots suivants"
+                ],
+                correctAnswer: 1,
+                explanation: "Le produit fini doit être mis en quarantaine et bien conservé (CQ, examen des documents nécessaires pour le dossier..). Il ne peut être libéré qu'après certification par le pharmacien responsable que toutes les exigences ont été respectées et que tous les contrôles sont satisfaisants."
+            },
+            {
+                chapter: "Chapitre 5",
+                chapterTitle: "Production",
+                question: "L'achat des matières premières doit se faire auprès de :",
+                options: [
+                    "N'importe quel fournisseur",
+                    "Fournisseurs agréés",
+                    "Pharmacies",
+                    "Grossistes"
+                ],
+                correctAnswer: 1,
+                explanation: "L'achat constitue une opération essentielle du processus de fabrication. Il doit être réalisé par une personne qualifiée chez un fournisseur agréé ou producteur. Toutes les modalités (spécifications, manutention, stockage, délais, réclamation, refus,...) doivent être bien discutées et approuvées par les parties concernées."
+            },
+
+            // Chapitre 6: Contrôle de la qualité
+            {
+                chapter: "Chapitre 6",
+                chapterTitle: "Contrôle de la qualité",
+                question: "Le contrôle qualité est garant de :",
+                options: [
+                    "La vente",
+                    "La conformité et la fiabilité des résultats",
+                    "La production",
+                    "La publicité"
+                ],
+                correctAnswer: 1,
+                explanation: "Le Contrôle Qualité (CQ) est le garant de : la vérification de la conformité, la fiabilité des résultats, et la traçabilité (Enregistrements de tous les résultats). Il garantit que les analyses nécessaires ont réellement été effectuées et ont été jugées satisfaisantes."
+            },
+            {
+                chapter: "Chapitre 6",
+                chapterTitle: "Contrôle de la qualité",
+                question: "Les prélèvements doivent être :",
+                options: [
+                    "Aléatoires sans règle",
+                    "Représentatifs et documentés",
+                    "Facultatifs",
+                    "Réalisés après libération"
+                ],
+                correctAnswer: 1,
+                explanation: "Le prélèvement d'échantillons doit s'effectuer selon des procédures écrites et approuvées précisant : la méthode d'échantillonnage, le matériel à utiliser, la quantité d'échantillons à prélever, les instructions pour toute division de l'échantillon, etc. Les échantillons doivent être représentatifs surtout dans le cas d'un essai sur animal."
+            },
+            {
+                chapter: "Chapitre 6",
+                chapterTitle: "Contrôle de la qualité",
+                question: "La libération d'un lot nécessite :",
+                options: [
+                    "Une décision marketing",
+                    "Une analyse partielle",
+                    "Un examen complet et une décision claire",
+                    "Une livraison préalable"
+                ],
+                correctAnswer: 2,
+                explanation: "L'évaluation des produits finis, en vue de leur libération pour la vente ou la distribution, doit prendre en compte l'ensemble des données nécessaires, conditions de production, résultats des contrôles en cours de fabrication, conformité aux spécifications du produit fini et examen des documents de fabrication et du conditionnement final. Une décision claire d'acceptation ou de refus est requise."
+            },
+            {
+                chapter: "Chapitre 6",
+                chapterTitle: "Contrôle de la qualité",
+                question: "Le laboratoire de contrôle qualité doit être :",
+                options: [
+                    "Dépendant de la production",
+                    "Indépendant",
+                    "Facultatif",
+                    "Externalisé obligatoirement"
+                ],
+                correctAnswer: 1,
+                explanation: "Le laboratoire de contrôle est complètement indépendant de la production. Cette indépendance est fondamentale pour garantir l'objectivité des analyses et éviter tout conflit d'intérêt. Le CQ doit pouvoir rejeter un lot sans pression de la production."
+            },
+            {
+                chapter: "Chapitre 6",
+                chapterTitle: "Contrôle de la qualité",
+                question: "Les résultats d'analyse doivent être :",
+                options: [
+                    "Orals",
+                    "Enregistrés et signés",
+                    "Non archivés",
+                    "Détruits"
+                ],
+                correctAnswer: 1,
+                explanation: "Les contrôles effectués doivent être enregistrés et les enregistrements doivent comprendre au minimum : le nom du produit, le numéro de lot, les résultats des analyses, les dates des contrôles, les initiales des opérateurs, et une décision claire d'acceptation ou de refus signée et datée par le responsable désigné."
+            },
+
+            // Chapitre 7: Sous-traitance
+            {
+                chapter: "Chapitre 7",
+                chapterTitle: "Sous-traitance",
+                question: "La sous-traitance nécessite :",
+                options: [
+                    "Un accord verbal",
+                    "Un contrat écrit",
+                    "Une autorisation orale",
+                    "Aucune formalité"
+                ],
+                correctAnswer: 1,
+                explanation: "Pour garantir la qualité du produit final, il faut établir un contrat entre les deux parties (par des personnes qualifiées), le donneur d'ordre et le sous-traitant. Ce contrat doit fixer les obligations de chacune des parties et les responsabilités, ainsi que toutes les dispositions techniques pour la réalisation du service."
+            },
+            {
+                chapter: "Chapitre 7",
+                chapterTitle: "Sous-traitance",
+                question: "Le donneur d'ordre doit :",
+                options: [
+                    "Ignorer le sous-traitant",
+                    "Évaluer sa capacité",
+                    "Transférer toute responsabilité",
+                    "Ne pas auditer"
+                ],
+                correctAnswer: 1,
+                explanation: "Le donneur d'ordre doit : évaluer la capacité du sous-traitant à réaliser le travail demandé, donner toute l'information nécessaire sur le produit (effets, manipulations, précautions, risques...), s'assurer que le produit fourni par le sous-traitant répond aux spécifications citées dans le contrat, et avoir une autorisation pour visiter les locaux du sous-traitant (audit)."
+            },
+            {
+                chapter: "Chapitre 7",
+                chapterTitle: "Sous-traitance",
+                question: "Le sous-traitant doit :",
+                options: [
+                    "Modifier le produit librement",
+                    "Respecter les BPF",
+                    "Sous-traiter à son tour",
+                    "Éviter les audits"
+                ],
+                correctAnswer: 1,
+                explanation: "Le sous-traitant doit : être titulaire d'une autorisation de fabrication de médicament, posséder les moyens (matériel, locaux, personnel...) pour effectuer l'opération à sous-traiter, respecter les BPF, informer de toute modification ou opération réalisée sur le produit non mentionnée dans le contrat, et s'abstenir de toute activité qui pourrait affecter le produit."
+            },
+            {
+                chapter: "Chapitre 7",
+                chapterTitle: "Sous-traitance",
+                question: "Toute modification non prévue doit être :",
+                options: [
+                    "Cachée",
+                    "Ignorée",
+                    "Signalée au donneur d'ordre",
+                    "Appliquée sans contrôle"
+                ],
+                correctAnswer: 2,
+                explanation: "Le sous-traitant doit informer de toute modification ou opération réalisée sur le produit non mentionnée dans le contrat. Cette transparence est essentielle pour maintenir la qualité du produit et permettre au donneur d'ordre d'évaluer l'impact potentiel de ces modifications."
+            },
+            {
+                chapter: "Chapitre 7",
+                chapterTitle: "Sous-traitance",
+                question: "La responsabilité finale du produit revient à :",
+                options: [
+                    "Le sous-traitant",
+                    "Le donneur d'ordre",
+                    "Le transporteur",
+                    "Le fournisseur"
+                ],
+                correctAnswer: 1,
+                explanation: "Le donneur d'ordre conserve la responsabilité finale du produit, même en cas de sous-traitance. C'est pourquoi il doit évaluer la capacité du sous-traitant, fournir toutes les informations nécessaires, et s'assurer de la conformité du produit fourni. Le contrat définit clairement les obligations et responsabilités respectives."
+            },
+
+            // Chapitre 8: Réclamations et rappels
+            {
+                chapter: "Chapitre 8",
+                chapterTitle: "Réclamations et rappels",
+                question: "Le traitement des réclamations est assuré par :",
+                options: [
+                    "Le service commercial",
+                    "Le pharmacien responsable",
+                    "Les clients",
+                    "Le transporteur"
+                ],
+                correctAnswer: 1,
+                explanation: "Le traitement des réclamations doit être assuré par le pharmacien responsable (ou personne désignée), qui doit décider des mesures à prendre et le suivi. Le Responsable du Contrôle Qualité (RCQ) doit être impliqué. Cette centralisation garantit une approche cohérente et qualifiée."
+            },
+            {
+                chapter: "Chapitre 8",
+                chapterTitle: "Réclamations et rappels",
+                question: "Un rappel de médicament doit être :",
+                options: [
+                    "Lent",
+                    "Facultatif",
+                    "Rapide et efficace",
+                    "Secret"
+                ],
+                correctAnswer: 2,
+                explanation: "Tous les moyens doivent être mis à disposition pour traiter les rappels avec l'urgence appropriée. Les rappels doivent être entrepris rapidement et à tout moment. Des procédures écrites concernant l'organisation des rappels doivent être établies, vérifiées et mises à jour. La rapidité est cruciale pour la sécurité des patients."
+            },
+            {
+                chapter: "Chapitre 8",
+                chapterTitle: "Réclamations et rappels",
+                question: "Les produits rappelés doivent être :",
+                options: [
+                    "Revendus",
+                    "Identifiés et stockés séparément",
+                    "Mélangés aux autres lots",
+                    "Exportés"
+                ],
+                correctAnswer: 1,
+                explanation: "Les produits rappelés doivent être identifiés et stockés séparément dans l'attente d'une décision sur leur sort. Cette séparation physique est essentielle pour éviter toute confusion et garantir qu'ils ne seront pas redistribués accidentellement avant qu'une décision ne soit prise."
+            },
+            {
+                chapter: "Chapitre 8",
+                chapterTitle: "Réclamations et rappels",
+                question: "Les autorités doivent être informées en cas de :",
+                options: [
+                    "Succès commercial",
+                    "Défaut de qualité",
+                    "Nouvelle publicité",
+                    "Changement de prix"
+                ],
+                correctAnswer: 1,
+                explanation: "Les autorités doivent être informées de la dégradation d'un médicament ou tout autre problème sérieux lié à la qualité du produit commercialisé. Le fabricant doit informer l'autorité compétente de tout défaut à l'origine du rappel. Cette notification est obligatoire pour protéger la santé publique."
+            },
+            {
+                chapter: "Chapitre 8",
+                chapterTitle: "Réclamations et rappels",
+                question: "L'efficacité du système de rappel doit être :",
+                options: [
+                    "Ignorée",
+                    "Réévaluée régulièrement",
+                    "Évaluée une seule fois",
+                    "Facultative"
+                ],
+                correctAnswer: 1,
+                explanation: "L'efficacité des dispositions prises pour effectuer les rappels doit être réévaluée régulièrement. Cette réévaluation permet de s'assurer que le système reste efficace et peut être amélioré en fonction des retours d'expérience. Un rapport doit être établi sur le déroulement du rappel et le bilan comparatif des quantités distribuées et récupérées."
+            },
+
+            // Chapitre 9: Auto-inspection
+            {
+                chapter: "Chapitre 9",
+                chapterTitle: "Auto-inspection",
+                question: "L'auto-inspection fait partie :",
+                options: [
+                    "Du marketing",
+                    "Du système d'assurance qualité",
+                    "De la production uniquement",
+                    "Du contrôle externe"
+                ],
+                correctAnswer: 1,
+                explanation: "L'auto-inspection est une démarche qui fait partie du système d'assurance qualité. Elle consiste à contrôler et à suivre la mise en œuvre et le respect des BPF et des procédures, et à proposer des actions correctives nécessaires. C'est un outil essentiel de l'amélioration continue."
+            },
+            {
+                chapter: "Chapitre 9",
+                chapterTitle: "Auto-inspection",
+                question: "Elle est réalisée par :",
+                options: [
+                    "Des personnes non formées",
+                    "Des personnes compétentes et indépendantes",
+                    "Les clients",
+                    "Les fournisseurs"
+                ],
+                correctAnswer: 1,
+                explanation: "L'auto-inspection doit être conduite d'une façon approfondie, par des personnes compétentes et indépendantes des activités auditées. Des audits effectués par des experts externes peuvent d'avérer utiles. Cette indépendance garantit l'objectivité de l'évaluation."
+            },
+            {
+                chapter: "Chapitre 9",
+                chapterTitle: "Auto-inspection",
+                question: "L'auto-inspection permet de :",
+                options: [
+                    "Supprimer les procédures",
+                    "Identifier les non-conformités",
+                    "Augmenter les ventes",
+                    "Réduire le personnel"
+                ],
+                correctAnswer: 1,
+                explanation: "L'auto-inspection est réalisée sur le personnel, locaux, matériel, documentation, production, contrôle qualité, distribution, traitement des réclamations, rappels... Elle permet de contrôler et suivre la mise en œuvre et le respect des BPF et des procédures, d'identifier les non-conformités et de proposer des actions correctives nécessaires."
+            },
+            {
+                chapter: "Chapitre 9",
+                chapterTitle: "Auto-inspection",
+                question: "Elle doit être réalisée :",
+                options: [
+                    "Une seule fois",
+                    "De façon régulière",
+                    "Après un rappel uniquement",
+                    "Sur demande des clients"
+                ],
+                correctAnswer: 1,
+                explanation: "L'auto-inspection doit être réalisée selon un programme préétabli (service AQ) et de façon régulière pour vérifier la conformité des réalisations avec les principes d'AQ. Cette régularité permet de maintenir un niveau constant de qualité et d'identifier rapidement les dérives potentielles."
+            },
+            {
+                chapter: "Chapitre 9",
+                chapterTitle: "Auto-inspection",
+                question: "Elle doit donner lieu à :",
+                options: [
+                    "Aucun document",
+                    "Un compte rendu écrit",
+                    "Une discussion orale",
+                    "Une sanction automatique"
+                ],
+                correctAnswer: 1,
+                explanation: "L'auto-inspection doit faire l'objet d'un compte rendu contenant : tous les rapports, les observations, les propositions de mesures correctives, les mesures prises ultérieurement, leur efficacité... Cette documentation complète assure la traçabilité des actions d'amélioration et permet le suivi de leur efficacité."
+            }
+        ];
+
+        // Quiz state
+        let currentQuestion = 0;
+        let userAnswers = [];
+        let score = 0;
+        let isReviewing = false;
+
+        // Theme toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const body = document.body;
+        
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            body.classList.add('light-mode');
+            updateThemeIcon();
+        }
+
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('light-mode');
+            const theme = body.classList.contains('light-mode') ? 'light' : 'dark';
+            localStorage.setItem('theme', theme);
+            updateThemeIcon();
+            lucide.createIcons();
+        });
+
+        function updateThemeIcon() {
+            const icon = body.classList.contains('light-mode') ? 'moon' : 'sun';
+            themeToggle.innerHTML = `<i data-lucide="${icon}"></i>`;
+            lucide.createIcons();
+        }
+
+        function startQuiz() {
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('quizContainer').style.display = 'block';
+            currentQuestion = 0;
+            userAnswers = new Array(quizData.length).fill(null);
+            score = 0;
+            isReviewing = false;
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const question = quizData[currentQuestion];
+            const container = document.getElementById('questionContainer');
+            
+            let optionsHTML = '';
+            question.options.forEach((option, index) => {
+                const isSelected = userAnswers[currentQuestion] === index;
+                const isCorrect = index === question.correctAnswer;
+                const isAnswered = userAnswers[currentQuestion] !== null;
+                
+                let optionClass = 'option';
+                if (isAnswered) {
+                    optionClass += ' disabled';
+                    if (isSelected && isCorrect) {
+                        optionClass += ' correct';
+                    } else if (isSelected && !isCorrect) {
+                        optionClass += ' incorrect';
+                    } else if (isCorrect) {
+                        optionClass += ' correct';
+                    }
+                } else if (isSelected) {
+                    optionClass += ' selected';
+                }
+                
+                optionsHTML += `
+                    <div class="${optionClass}" onclick="selectOption(${index})">
+                        <div class="option-letter">${String.fromCharCode(65 + index)}</div>
+                        <div class="option-text">${option}</div>
+                    </div>
+                `;
+            });
+
+            const isAnswered = userAnswers[currentQuestion] !== null;
+            const isCorrectAnswer = userAnswers[currentQuestion] === question.correctAnswer;
+            
+            let feedbackHTML = '';
+            if (isAnswered) {
+                feedbackHTML = `
+                    <div class="feedback ${isCorrectAnswer ? 'correct' : 'incorrect'}">
+                        <div class="feedback-icon">
+                            <i data-lucide="${isCorrectAnswer ? 'check-circle' : 'x-circle'}"></i>
+                        </div>
+                        <span>${isCorrectAnswer ? 'Correct !' : 'Incorrect. La bonne réponse est : ' + String.fromCharCode(65 + question.correctAnswer)}</span>
+                    </div>
+                    <div class="explanation visible">
+                        <div class="explanation-title">
+                            <i data-lucide="info"></i>
+                            Explication
+                        </div>
+                        <div class="explanation-content">${question.explanation}</div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = `
+                <div class="question-number">
+                    <span class="question-number-badge">${currentQuestion + 1}</span>
+                    <span>Question ${currentQuestion + 1} sur ${quizData.length}</span>
+                    <span class="chapter-badge">${question.chapter}</span>
+                </div>
+                <div class="question-text">${question.question}</div>
+                <div class="options-container">
+                    ${optionsHTML}
+                </div>
+                ${feedbackHTML}
+            `;
+            
+            updateNavigation();
+            updateProgress();
+            lucide.createIcons();
+        }
+
+        function selectOption(optionIndex) {
+            if (userAnswers[currentQuestion] !== null) return; // Already answered
+            
+            userAnswers[currentQuestion] = optionIndex;
+            
+            if (optionIndex === quizData[currentQuestion].correctAnswer) {
+                score++;
+            }
+            
+            loadQuestion();
+        }
+
+        function nextQuestion() {
+            if (currentQuestion < quizData.length - 1) {
+                currentQuestion++;
+                loadQuestion();
+            } else if (userAnswers.every(answer => answer !== null)) {
+                showResults();
+            }
+        }
+
+        function previousQuestion() {
+            if (currentQuestion > 0) {
+                currentQuestion--;
+                loadQuestion();
+            }
+        }
+
+        function updateNavigation() {
+            const prevButton = document.getElementById('prevButton');
+            const nextButton = document.getElementById('nextButton');
+            
+            prevButton.disabled = currentQuestion === 0;
+            
+            if (currentQuestion === quizData.length - 1) {
+                if (userAnswers.every(answer => answer !== null)) {
+                    nextButton.innerHTML = '<i data-lucide="check-circle"></i> Terminer';
+                } else {
+                    nextButton.innerHTML = 'Suivant <i data-lucide="chevron-right"></i>';
+                    nextButton.disabled = true;
+                }
+            } else {
+                nextButton.innerHTML = 'Suivant <i data-lucide="chevron-right"></i>';
+                nextButton.disabled = false;
+            }
+            
+            lucide.createIcons();
+        }
+
+        function updateProgress() {
+            const answered = userAnswers.filter(a => a !== null).length;
+            const correct = userAnswers.filter((a, i) => a === quizData[i].correctAnswer).length;
+            const incorrect = answered - correct;
+            const percentage = (answered / quizData.length) * 100;
+            
+            document.getElementById('progressBar').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = `${answered}/${quizData.length}`;
+            document.getElementById('answeredCount').textContent = answered;
+            document.getElementById('correctCount').textContent = correct;
+            document.getElementById('incorrectCount').textContent = incorrect;
+        }
+
+        function showResults() {
+            document.getElementById('quizContainer').style.display = 'none';
+            document.getElementById('resultsScreen').style.display = 'block';
+            
+            const correct = userAnswers.filter((a, i) => a === quizData[i].correctAnswer).length;
+            const incorrect = quizData.length - correct;
+            const percentage = Math.round((correct / quizData.length) * 100);
+            
+            document.getElementById('finalScore').textContent = percentage + '%';
+            document.getElementById('finalCorrect').textContent = correct;
+            document.getElementById('finalIncorrect').textContent = incorrect;
+            document.getElementById('finalPercentage').textContent = percentage + '%';
+            
+            let message = '';
+            if (percentage >= 90) {
+                message = 'Excellent ! Vous maîtrisez parfaitement les BPF !';
+            } else if (percentage >= 75) {
+                message = 'Très bien ! Bonne compréhension des BPF.';
+            } else if (percentage >= 60) {
+                message = 'Bien ! Continuez à réviser pour améliorer vos connaissances.';
+            } else {
+                message = 'Continuez vos efforts. Révisez le cours et réessayez !';
+            }
+            
+            document.getElementById('scoreMessage').textContent = message;
+            
+            lucide.createIcons();
+        }
+
+        function restartQuiz() {
+            document.getElementById('resultsScreen').style.display = 'none';
+            document.getElementById('startScreen').style.display = 'block';
+            currentQuestion = 0;
+            userAnswers = [];
+            score = 0;
+            isReviewing = false;
+        }
+
+        function reviewAnswers() {
+            document.getElementById('resultsScreen').style.display = 'none';
+            document.getElementById('quizContainer').style.display = 'block';
+            currentQuestion = 0;
+            isReviewing = true;
+            loadQuestion();
+        }
+
+        // Initialize icons on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
